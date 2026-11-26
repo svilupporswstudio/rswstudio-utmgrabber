@@ -1,0 +1,6 @@
+{
+  "name": "RSW UTM Grabber",
+  "description": "Plugin WordPress di rswstudio per acquisire parametri UTM e click ID dall'URL, conservarli nei cookie e popolare form e shortcode (WordPress 7.0–7.2, PHP 8.3).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
