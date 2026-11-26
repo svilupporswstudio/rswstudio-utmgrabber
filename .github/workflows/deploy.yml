@@ -1,0 +1,26 @@
+name: Deploy to WordPress.org
+
+on:
+  push:
+    tags:
+      - 'v*'
+      - '[0-9]*.[0-9]*'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Publish rswstudio-utmgrabber to WordPress Plugin Directory
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Apply .svnignore exclusions for deployment
+        run: cp .svnignore .distignore
+
+      - name: WordPress Plugin Deploy
+        uses: 10up/action-wordpress-plugin-deploy@stable
+        env:
+          SLUG: rswstudio-utmgrabber
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}

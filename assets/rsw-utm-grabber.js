@@ -1,261 +1,172 @@
 (function () {
 	'use strict';
 
-	var config = window.RSWUTMGrabber && typeof window.RSWUTMGrabber === 'object'
+	var cfg = window.RSWUTMGrabber && typeof window.RSWUTMGrabber === 'object'
 		? window.RSWUTMGrabber
 		: {};
 
-	var parameters = Array.isArray(config.parameters) && config.parameters.length
-		? config.parameters
+	var parameters = Array.isArray(cfg.parameters) && cfg.parameters.length
+		? cfg.parameters
 		: ['utm_campaign', 'utm_source', 'utm_medium', 'utm_term', 'utm_content', 'gclid', 'fbclid'];
 
-	var cookieDays = parseInt(config.cookieDays, 10);
+	var cookieDays = parseInt(cfg.cookieDays, 10);
 	if (!cookieDays || cookieDays < 1) {
 		cookieDays = 30;
 	} else if (cookieDays > 3650) {
 		cookieDays = 3650;
 	}
+	var maxAge = cookieDays * 24 * 60 * 60;
 
-	var parameterLookup = Object.create(null);
-	for (var i = 0; i < parameters.length; i++) {
-		if (typeof parameters[i] === 'string' && parameters[i]) {
-			parameterLookup[parameters[i].toLowerCase()] = parameters[i];
+	function getSearchParams() {
+		var params = new URLSearchParams(window.location.search);
+		var found = parameters.some(function (name) { return params.has(name); });
+
+		if (found) {
+			return params;
 		}
+
+		/* Fallback per query tutta URL-encoded. */
+		var raw = window.location.search.replace(/^\?/, '');
+		if (!raw || !/%3D|%26/i.test(raw)) {
+			return params;
+		}
+
+		try {
+			var decoded = decodeURIComponent(raw);
+			if (decoded !== raw && decoded.indexOf('=') !== -1) {
+				return new URLSearchParams(decoded);
+			}
+		} catch (e) {}
+
+		return params;
 	}
 
-	function sanitizeValue(raw) {
-		if (raw === null || raw === undefined) {
-			return '';
+	function setCookie(name, value) {
+		var effectiveMaxAge = value === '' ? 0 : maxAge;
+		var cookie = encodeURIComponent(name) + '=' + encodeURIComponent(value)
+			+ '; Max-Age=' + effectiveMaxAge
+			+ '; Path=/'
+			+ '; SameSite=Lax';
+
+		if (window.location.protocol === 'https:') {
+			cookie += '; Secure';
 		}
-		var str = String(raw).replace(/[\u0000-\u001F\u007F]/g, '').trim();
-		if (str.length > 1024) {
-			str = str.slice(0, 1024);
-		}
-		return str;
+
+		document.cookie = cookie;
 	}
 
-	function parseQueryParameters() {
-		var found = Object.create(null);
-		var search = window.location && typeof window.location.search === 'string'
-			? window.location.search
-			: '';
+	function getCookie(name) {
+		var prefix = encodeURIComponent(name) + '=';
+		var parts = document.cookie ? document.cookie.split('; ') : [];
 
-		if (!search || search.length < 2) {
-			return found;
-		}
-
-		var rawQuery = search.charAt(0) === '?' ? search.slice(1) : search;
-
-		function collectFromSearchParams(queryString) {
-			try {
-				var params = new URLSearchParams(queryString);
-				params.forEach(function (value, key) {
-					var normalizedKey = String(key).toLowerCase();
-					if (Object.prototype.hasOwnProperty.call(parameterLookup, normalizedKey)) {
-						found[parameterLookup[normalizedKey]] = sanitizeValue(value);
-					}
-				});
-			} catch (e) {
-				// Fallback manuale se URLSearchParams fallisce su query malformate.
-				var pairs = queryString.split('&');
-				for (var j = 0; j < pairs.length; j++) {
-					var idx = pairs[j].indexOf('=');
-					var rawKey = idx === -1 ? pairs[j] : pairs[j].slice(0, idx);
-					var rawVal = idx === -1 ? '' : pairs[j].slice(idx + 1);
-					try {
-						var decodedKey = decodeURIComponent(rawKey.replace(/\+/g, ' ')).toLowerCase();
-						if (Object.prototype.hasOwnProperty.call(parameterLookup, decodedKey)) {
-							var decodedVal = decodeURIComponent(rawVal.replace(/\+/g, ' '));
-							found[parameterLookup[decodedKey]] = sanitizeValue(decodedVal);
-						}
-					} catch (err) {
-						// Ignora sequenze URI non valide.
-					}
-				}
-			}
-		}
-
-		collectFromSearchParams(rawQuery);
-
-		// Tollera query erroneamente codificate tutte insieme (?utm_source%3Dgoogle%26...)
-		if (Object.keys(found).length === 0 && (/%3D/i.test(rawQuery) || /%26/i.test(rawQuery))) {
-			try {
-				var decodedQuery = decodeURIComponent(rawQuery);
-				if (decodedQuery !== rawQuery && decodedQuery.indexOf('=') !== -1) {
-					collectFromSearchParams(decodedQuery);
-				}
-			} catch (e) {
-				// Ignora sequenze non decodificabili.
-			}
-		}
-
-		return found;
-	}
-
-	function readCookie(name) {
-		if (!document.cookie) {
-			return '';
-		}
-		var cookies = document.cookie.split(';');
-		for (var i = 0; i < cookies.length; i++) {
-			var part = cookies[i].trim();
-			var eqIdx = part.indexOf('=');
-			if (eqIdx === -1) {
-				continue;
-			}
-			var key = part.slice(0, eqIdx).trim();
-			if (key === name) {
-				var val = part.slice(eqIdx + 1);
+		for (var i = 0; i < parts.length; i++) {
+			if (parts[i].indexOf(prefix) === 0) {
 				try {
-					return sanitizeValue(decodeURIComponent(val));
+					return decodeURIComponent(parts[i].substring(prefix.length));
 				} catch (e) {
-					return sanitizeValue(val);
+					return '';
 				}
 			}
 		}
-		return '';
+
+		return null;
 	}
 
-	function writeCookie(name, value) {
-		var maxAge = value === '' ? 0 : cookieDays * 86400;
-		var parts = [
-			encodeURIComponent(name) + '=' + encodeURIComponent(value),
-			'path=/',
-			'max-age=' + maxAge,
-			'SameSite=Lax'
-		];
+	function resolveValues() {
+		var search = getSearchParams();
+		var values = Object.create(null);
 
-		if (window.location && window.location.protocol === 'https:') {
-			parts.push('Secure');
-		}
-
-		document.cookie = parts.join('; ');
-	}
-
-	function syncCookiesFromUrl() {
-		var urlValues = parseQueryParameters();
-		var keys = Object.keys(urlValues);
-		for (var i = 0; i < keys.length; i++) {
-			writeCookie(keys[i], urlValues[keys[i]]);
-		}
-		return urlValues;
-	}
-
-	function getTrackingValues() {
-		var urlValues = syncCookiesFromUrl();
-		var resolved = Object.create(null);
-
-		for (var i = 0; i < parameters.length; i++) {
-			var param = parameters[i];
-			if (Object.prototype.hasOwnProperty.call(urlValues, param)) {
-				resolved[param] = urlValues[param];
+		parameters.forEach(function (name) {
+			if (search.has(name)) {
+				values[name] = (search.get(name) || '').substring(0, 1024);
+				setCookie(name, values[name]);
 			} else {
-				resolved[param] = readCookie(param);
+				var cookieValue = getCookie(name);
+				values[name] = cookieValue === null ? '' : String(cookieValue).substring(0, 1024);
 			}
-		}
+		});
 
-		return resolved;
+		return values;
 	}
 
 	function populateInputs(root) {
+		var values = resolveValues();
 		var scope = root && typeof root.querySelectorAll === 'function' ? root : document;
-		var inputs = scope.querySelectorAll('input[name]');
-		if (!inputs.length) {
+
+		parameters.forEach(function (name) {
+			var fields = scope.querySelectorAll('input[name="' + name + '"]');
+			for (var i = 0; i < fields.length; i++) {
+				fields[i].value = values[name];
+				fields[i].setAttribute('value', values[name]);
+			}
+		});
+	}
+
+	function stripWrapperText(root) {
+		if (!root || typeof document.createTreeWalker !== 'function' || typeof NodeFilter === 'undefined') {
 			return;
 		}
 
-		var values = getTrackingValues();
+		var re = /\[\/?(?:utm_campaign_i|utm_source_i|utm_medium_i|utm_term_i|utm_content_i|gclid_i|fbclid_i)\]/gi;
+		var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+		var ignoredTags = { SCRIPT: true, STYLE: true, TEXTAREA: true, PRE: true, CODE: true };
+		var nodes = [];
+		var node;
 
-		for (var i = 0; i < inputs.length; i++) {
-			var input = inputs[i];
-			var rawName = input.getAttribute('name');
-			if (!rawName) {
+		while ((node = walker.nextNode())) {
+			var parentTag = node.parentNode && node.parentNode.nodeName;
+			if (parentTag && ignoredTags[parentTag]) {
 				continue;
 			}
-
-			var normalized = rawName.trim().toLowerCase();
-			if (!Object.prototype.hasOwnProperty.call(parameterLookup, normalized)) {
-				continue;
-			}
-
-			if (input.type && input.type.toLowerCase() !== 'hidden' && input.dataset && input.dataset.rswUtmEdited === '1') {
-				continue;
-			}
-
-			var canonicalName = parameterLookup[normalized];
-			var nextValue = Object.prototype.hasOwnProperty.call(values, canonicalName)
-				? values[canonicalName]
-				: '';
-
-			if (input.value !== nextValue) {
-				input.value = nextValue;
+			if (node.nodeValue && node.nodeValue.indexOf('_i]') !== -1) {
+				nodes.push(node);
 			}
 		}
+
+		nodes.forEach(function (textNode) {
+			textNode.nodeValue = textNode.nodeValue.replace(re, '');
+		});
 	}
 
-	function init() {
+	function process() {
 		populateInputs(document);
-
-		// Traccia modifiche manuali su eventuali input visibili.
-		document.addEventListener('input', function (event) {
-			var target = event.target;
-			if (!target || target.tagName !== 'INPUT') {
-				return;
-			}
-			var rawName = target.getAttribute('name');
-			if (!rawName) {
-				return;
-			}
-			var normalized = rawName.trim().toLowerCase();
-			if (Object.prototype.hasOwnProperty.call(parameterLookup, normalized) && target.dataset) {
-				target.dataset.rswUtmEdited = '1';
-			}
-		}, true);
-
-		// Ricontrolla immediatamente prima del submit (in fase capture, prima di CF7).
-		document.addEventListener('submit', function (event) {
-			populateInputs(event.target || document);
-		}, true);
-
-		// Supporto eventi Contact Form 7 (re-popola dopo reset form post-invio).
-		document.addEventListener('wpcf7reset', function (event) {
-			populateInputs(event.target || document);
-		});
-		document.addEventListener('wpcf7mailsent', function (event) {
-			window.setTimeout(function () {
-				populateInputs(event.target || document);
-			}, 0);
-		});
-
-		// Fallback per form ricostruiti dinamicamente, popup e navigazione client-side.
-		if (typeof MutationObserver === 'function' && document.body) {
-			var scheduled = false;
-			var observer = new MutationObserver(function (mutations) {
-				if (scheduled) {
-					return;
-				}
-				for (var i = 0; i < mutations.length; i++) {
-					if (mutations[i].addedNodes && mutations[i].addedNodes.length > 0) {
-						scheduled = true;
-						window.requestAnimationFrame(function () {
-							scheduled = false;
-							populateInputs(document);
-						});
-						break;
-					}
-				}
-			});
-
-			observer.observe(document.body, {
-				childList: true,
-				subtree: true
-			});
-		}
+		stripWrapperText(document.body || document.documentElement);
 	}
 
 	if (document.readyState === 'loading') {
-		document.addEventListener('DOMContentLoaded', init);
+		document.addEventListener('DOMContentLoaded', process);
 	} else {
-		init();
+		process();
+	}
+
+	/* Ricontrolla immediatamente prima dell'invio. */
+	document.addEventListener('submit', function (event) {
+		if (event.target && typeof event.target.querySelectorAll === 'function') {
+			populateInputs(event.target);
+		}
+	}, true);
+
+	/* CF7 può ricostruire il form via JS. */
+	document.addEventListener('wpcf7init', process);
+	document.addEventListener('wpcf7reset', process);
+
+	if (window.MutationObserver) {
+		var timer = null;
+		var observer = new MutationObserver(function () {
+			window.clearTimeout(timer);
+			timer = window.setTimeout(process, 30);
+		});
+
+		var startObserver = function () {
+			if (document.body) {
+				observer.observe(document.body, { childList: true, subtree: true });
+			}
+		};
+
+		if (document.body) {
+			startObserver();
+		} else {
+			document.addEventListener('DOMContentLoaded', startObserver);
+		}
 	}
 })();

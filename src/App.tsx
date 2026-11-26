@@ -4,10 +4,12 @@
  */
 
 const PLUGIN_FILES = [
-  {path: 'rsw-utm-grabber.php', role: 'File principale del plugin WordPress (v1.5.0)'},
+  {path: 'rsw-utm-grabber.php', role: 'File principale del plugin WordPress (v2.0.0)'},
   {path: 'assets/rsw-utm-grabber.js', role: 'Fallback JavaScript per cache full-page, form dinamici e pre-submit'},
   {path: 'uninstall.php', role: 'Pulizia opzioni in disinstallazione (single site e Multisite)'},
   {path: 'readme.txt', role: 'Documentazione WordPress e changelog'},
+  {path: '.github/workflows/deploy.yml', role: 'Workflow GitHub Actions per deploy su WordPress.org (rswstudio-utmgrabber)'},
+  {path: '.svnignore', role: 'Esclusioni per la WordPress Plugin Directory'},
 ];
 
 const SUPPORTED_PARAMS = [
@@ -26,9 +28,9 @@ export default function App() {
       <div className="max-w-3xl mx-auto space-y-8">
         <header className="space-y-2 border-b border-slate-200 pb-6">
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-            Plugin WordPress · rswstudio
+            Plugin WordPress · rswstudio · slug: rswstudio-utmgrabber
           </p>
-          <h1 className="text-3xl font-bold tracking-tight">RSW UTM Grabber v1.5.0</h1>
+          <h1 className="text-3xl font-bold tracking-tight">RSW UTM Grabber v2.0.0</h1>
           <p className="text-slate-600">
             Compatibile con PHP 8.3 · WordPress minimo 7.0 · Testato fino a WordPress 7.2
           </p>

@@ -3,7 +3,7 @@ Contributors: rswstudio
 Requires at least: 7.0
 Tested up to: 7.2
 Requires PHP: 7.4
-Stable tag: 1.5.0
+Stable tag: 2.0.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -38,17 +38,21 @@ Mail tag CF7 supportati:
 == Multisite ==
 In WordPress Multisite il plugin deve essere attivato in ciascun sito interessato oppure attivato a livello di rete. Alla disinstallazione, le opzioni vengono rimosse da tutti i siti della rete.
 
+== Upgrade Notice ==
+= 2.0.0 =
+Richiede WordPress 7.0 o successivo (testato fino a WordPress 7.2) e introduce la piena compatibilità con PHP 8.3 e le API moderne di WordPress.
+
 == Changelog ==
-= 1.5.0 =
-* Aggiornati i requisiti minimi a WordPress 7.0 e verificata la compatibilità fino a WordPress 7.2.
+= 2.0.0 =
+* Major release 2.0.0: aggiornato il requisito minimo a WordPress 7.0 e testato fino a WordPress 7.2.
 * Aggiornato l'autore a `rswstudio`.
-* Verificata e rafforzata la compatibilità con PHP 8.3 (tipizzazione rigorosa nelle opzioni di `setcookie()`, controllo tipi su tag/shortcode/hook e gestione sicura delle stringhe UTF-8).
-* Sostituito `wp_localize_script()` con `wp_add_inline_script()` e `wp_json_encode()`, adottando la strategia `defer` in `wp_enqueue_script()` secondo gli standard di WordPress 7.x.
-* Aggiornato `replace_cf7_placeholders()` all'uso di `WP_HTML_Tag_Processor` per una sostituzione affidabile degli attributi `<input>` su WordPress 7.0–7.2.
-* Aggiunto lo script mancante `assets/rsw-utm-grabber.js` per il fallback con full-page cache, form dinamici e aggiornamento pre-submit.
+* Rimossi i riferimenti e i pattern deprecati di WordPress e DOM: sostituito `wp_localize_script()` con `wp_add_inline_script()` + `wp_json_encode()`, adottata la strategia `defer` in `wp_enqueue_script()`, utilizzato `WP_HTML_Tag_Processor` nativo in `replace_cf7_placeholders()` e rimosso il parametro deprecato di `document.createTreeWalker()`.
+* Verificata e rafforzata la compatibilità con PHP 8.3 (opzioni tipizzate in `setcookie()`, controlli rigorosi sui tipi negli hook e gestione UTF-8 sicura).
+* Aggiunto `assets/rsw-utm-grabber.js` per il fallback con full-page cache, form dinamici (`wpcf7init`, `wpcf7reset`, `MutationObserver`), rimozione wrapper residui sicura e aggiornamento pre-submit.
 * Corretta la gestione degli shortcode annidati e prevenuta la riesecuzione di shortcode sui valori utente in `render_wrapper_shortcode()`.
 * Migliorata la pulizia in `uninstall.php` con supporto completo per installazioni WordPress Multisite.
 * Evitata la scrittura dei cookie durante richieste admin, AJAX, Cron, XML-RPC e WP-CLI.
+* Aggiunto workflow GitHub Actions (`.github/workflows/deploy.yml`) per la pubblicazione sulla WordPress Plugin Directory con slug `rswstudio-utmgrabber` e file `.svnignore` per l'esclusione dei file non di produzione.
 
 = 1.4.2 =
 * Versione precedente con supporto cookie, shortcode wrapper legacy e integrazione Contact Form 7.

@@ -1,0 +1,46 @@
+# Version control, CI/CD & WordPress.org workflow files
+.git/
+.github/
+.gitignore
+.gitattributes
+.distignore
+.svnignore
+.wordpress-org/
+
+# Environment, IDE & local config
+.env
+.env.*
+.env.example
+.vscode/
+.idea/
+
+# AI Studio / Node / Frontend build & tooling files
+node_modules/
+dist/
+build/
+coverage/
+src/
+public/
+index.html
+metadata.json
+package.json
+package-lock.json
+yarn.lock
+bun.lock
+tsconfig.json
+vite.config.ts
+
+# Composer / PHP dev tools (if added locally)
+composer.json
+composer.lock
+vendor/
+phpcs.xml
+phpcs.xml.dist
+phpunit.xml
+phpunit.xml.dist
+
+# Archives, logs & OS files
+*.zip
+*.log
+.DS_Store
+Thumbs.db

@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       RSW UTM Grabber
  * Description:       Acquisisce UTM e click ID dall'URL, li conserva nei cookie e mantiene la compatibilità con i wrapper legacy di HandL UTM Grabber.
- * Version:           1.5.0
+ * Version:           2.0.0
  * Requires at least: 7.0
  * Tested up to:      7.2
  * Requires PHP:      7.4
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 final class RSW_UTM_Grabber {
-	const VERSION      = '1.5.0';
+	const VERSION      = '2.0.0';
 	const OPTION_DAYS  = 'rsw_utm_grabber_cookie_days';
 	const DEFAULT_DAYS = 30;
 
@@ -227,9 +227,9 @@ final class RSW_UTM_Grabber {
 	}
 
 	/**
-	 * Cuore della compatibilità CF7/HandL.
+	 * Cuore della compatibilità CF7/HandL tramite WP_HTML_Tag_Processor.
 	 *
-	 * Non importa come sono annidati i wrapper. Per ogni <input>:
+	 * Per ogni <input>:
 	 * 1. legge name="...";
 	 * 2. se è uno dei 7 parametri, sostituisce %s nell'attributo value col valore URL/cookie;
 	 * 3. alla fine rimuove SOLO dal markup renderizzato i marker [utm_*_i].
@@ -241,76 +241,31 @@ final class RSW_UTM_Grabber {
 			return $html;
 		}
 
-		$original_html = $html;
-		$parameters    = self::get_parameters();
+		$parameters = self::get_parameters();
+		$processor  = new WP_HTML_Tag_Processor( $html );
 
-		if ( class_exists( 'WP_HTML_Tag_Processor' ) ) {
-			$processor = new WP_HTML_Tag_Processor( $html );
-
-			while ( $processor->next_tag( array( 'tag_name' => 'INPUT' ) ) ) {
-				$raw_name = $processor->get_attribute( 'name' );
-				if ( ! is_string( $raw_name ) || '' === $raw_name ) {
-					continue;
-				}
-
-				$name = strtolower( trim( $raw_name ) );
-				if ( ! in_array( $name, $parameters, true ) ) {
-					continue;
-				}
-
-				$current_value = $processor->get_attribute( 'value' );
-				if ( is_string( $current_value ) && false !== strpos( $current_value, '%s' ) ) {
-					$tracking_value = self::get_tracking_value( $name );
-					$processor->set_attribute(
-						'value',
-						str_replace( '%s', $tracking_value, $current_value )
-					);
-				}
+		while ( $processor->next_tag( array( 'tag_name' => 'INPUT' ) ) ) {
+			$raw_name = $processor->get_attribute( 'name' );
+			if ( ! is_string( $raw_name ) || '' === $raw_name ) {
+				continue;
 			}
 
-			$html = $processor->get_updated_html();
-		} else {
-			$replaced_html = preg_replace_callback(
-				'/<input\b[^>]*>/i',
-				function ( $matches ) use ( $parameters ) {
-					$input = $matches[0];
+			$name = strtolower( trim( $raw_name ) );
+			if ( ! in_array( $name, $parameters, true ) ) {
+				continue;
+			}
 
-					/* Supporta name quotato o non quotato. */
-					if ( ! preg_match( '/\bname\s*=\s*(?:(["\'])(.*?)\1|([^\s>]+))/i', $input, $name_match ) ) {
-						return $input;
-					}
-
-					$raw_name = isset( $name_match[2] ) && '' !== $name_match[2] ? $name_match[2] : ( $name_match[3] ?? '' );
-					$name     = strtolower( html_entity_decode( $raw_name, ENT_QUOTES, 'UTF-8' ) );
-					if ( ! in_array( $name, $parameters, true ) ) {
-						return $input;
-					}
-
-					$value = esc_attr( self::get_tracking_value( $name ) );
-
-					/* Sostituisce value="%s", value='%s' oppure value=%s. */
-					$replaced = preg_replace_callback(
-						'/\bvalue\s*=\s*(?:(["\'])%s\1|%s)(?=\s|\/?>)/i',
-						function ( $value_match ) use ( $value ) {
-							$quote = ! empty( $value_match[1] ) ? $value_match[1] : '"';
-							return 'value=' . $quote . $value . $quote;
-						},
-						$input,
-						1
-					);
-
-					/* Fallback prudenziale per markup non standard. */
-					if ( is_string( $replaced ) && $replaced === $input && false !== strpos( $input, '%s' ) ) {
-						$replaced = str_replace( '%s', $value, $input );
-					}
-
-					return is_string( $replaced ) ? $replaced : $input;
-				},
-				$html
-			);
-
-			$html = is_string( $replaced_html ) ? $replaced_html : $original_html;
+			$current_value = $processor->get_attribute( 'value' );
+			if ( is_string( $current_value ) && false !== strpos( $current_value, '%s' ) ) {
+				$tracking_value = self::get_tracking_value( $name );
+				$processor->set_attribute(
+					'value',
+					str_replace( '%s', $tracking_value, $current_value )
+				);
+			}
 		}
+
+		$html = $processor->get_updated_html();
 
 		/*
 		 * Manteniamo i wrapper nel form salvato in amministrazione, ma non li
